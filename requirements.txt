@@ -1,0 +1,7 @@
+polars
+great-tables
+gt-extras
+shiny
+shinylive
+pybaseball
+requests
