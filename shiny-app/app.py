@@ -7,6 +7,11 @@ import gt_extras as gte
 
 from shiny import reactive
 from shiny.express import input, render, ui
+from pathlib import Path
+
+APP_DIR = Path(__file__).parent
+
+DATA_PATH = APP_DIR / "data" / "MLB2020-2024GameInfo.csv"
 
 
 # --- Utility functions ---
@@ -74,7 +79,7 @@ def pitcher_data():
     YEAR = int(input.year())
     prepend = YEAR * 10000
 
-    df = pl.read_csv("./data/MLB2020-2024GameInfo.csv", ignore_errors=True)
+    df = pl.read_csv(str(DATA_PATH), ignore_errors=True)
     df = df.filter(
         (pl.col("Date") >= (prepend + 101)) & (pl.col("Date") <= (prepend + 1231))
     )
@@ -138,7 +143,9 @@ def pitcher_data():
             ]
         )
         .with_columns(
-            pl.col("Team").map_elements(lambda t: f"./images/{t}.png").alias("Logo")
+            pl.col("Team").map_elements(
+                lambda t: str(APP_DIR / "data" / "images" / f"{t}.png")
+            ).alias("Logo")
         )
     )
 
@@ -152,7 +159,8 @@ def pitcher_data():
         .with_columns(
             pl.col("Starting Pitcher ID")
             .map_elements(
-                lambda x: f"player_headshots_id/{x}.png", return_dtype=pl.Utf8
+                lambda x: str(APP_DIR / "data" / "player_headshots_id" / f"{x}.png"),
+                return_dtype=pl.Utf8
             )
             .alias("headshot_img")
         )
@@ -171,7 +179,7 @@ def pitcher_data():
         .head(1)
     )
 
-    era_df = pl.read_csv(f"./data/{YEAR}era.csv", ignore_errors=True)
+    era_df = pl.read_csv(str(APP_DIR / "data" / f"{YEAR}era.csv"), ignore_errors=True)
 
     top_pitchers_with_era = top_pitchers.join(
         era_df.select([pl.col("key_retro"), pl.col("ERA")]),

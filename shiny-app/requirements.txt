@@ -2,7 +2,6 @@ polars
 great-tables
 gt-extras
 shiny
-pybaseball
-requests
-jupyter
-quarto
+numpy
+faicons
+scipy
