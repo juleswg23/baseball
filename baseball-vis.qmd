@@ -1,0 +1,464 @@
+---
+title: "Baseball vis"
+---
+```{python}
+from __future__ import annotations
+
+
+def gt_plt_split_bar(
+    gt: GT,
+    columns: tuple[str, str],
+    fill_left: str = "red",
+    fill_right: str = "darkgreen",
+    bar_height: float = 20,
+    height: float = 30,
+    width: float = 100,
+    stroke_color: str | None = None,
+    show_labels: bool = True,
+    label_color: str = "white",
+    domain: tuple[list[int | float], list[int | float]] | None = None,
+    keep_columns: bool = False,
+) -> GT:
+    """
+    Create split horizontal bar plots in `GT` cells for two columns.
+
+    Parameters
+    ----------
+    gt : GT
+        A `GT` object to modify.
+    columns : tuple[str, str]
+        The two columns to visualize (left, right).
+    fill_left : str
+        Color for the left bar (good luck).
+    fill_right : str
+        Color for the right bar (bad luck).
+    bar_height : float
+        Height of the bars.
+    height : float
+        Total height of the SVG.
+    width : float
+        Total width of the SVG.
+    stroke_color : str | None
+        Color of the vertical axis.
+    show_labels : bool
+        Whether to show labels.
+    label_color : str
+        Color of the labels.
+    domain : tuple[list, list] | None
+        Optional domains for scaling.
+    keep_columns : bool
+        Whether to keep original columns.
+
+    Returns
+    -------
+    GT
+        A `GT` object with split bar plots added.
+    """
+    if bar_height > height:
+        bar_height = height
+    if bar_height < 0:
+        bar_height = 0
+    if stroke_color is None:
+        stroke_color = "transparent"
+
+    col_left, col_right = columns
+
+    # Get values and scale
+    vals_left = gt._tbl_data[col_left]
+    vals_right = gt._tbl_data[col_right]
+
+    domain_left = domain[0] if domain else [0, 1.5]
+    domain_right = domain[1] if domain else [0, 7.5]
+
+    def scale(val, domain):
+        min_v, max_v = domain
+        if max_v == min_v:
+            return 0.5 * width
+        return ((val - min_v) / (max_v - min_v)) * (width / 2)
+
+    def make_split_bar(val_left, val_right):
+        left_w = scale(val_left, domain_left)
+        right_w = scale(val_right, domain_right)
+
+        svg = f'''
+        <svg width="{width}" height="{height}">
+            <!-- Left bar: Team Errors, stretches left from midpoint -->
+            <rect x="{width/2 - left_w}" y="{(height-bar_height)/2}" width="{left_w}" height="{bar_height}" fill="{fill_left}" stroke="{stroke_color}" />
+            <!-- Right bar: Team Runs, stretches right from midpoint -->
+            <rect x="{width/2}" y="{(height-bar_height)/2}" width="{right_w}" height="{bar_height}" fill="{fill_right}" stroke="{stroke_color}" />
+            <!-- Left label at inside left of left bar -->
+            {'<text x="%d" y="%d" fill="%s" font-size="12" text-anchor="start" alignment-baseline="middle">%s</text>' % (width/2 - left_w + 5, height/2, label_color, val_left) if show_labels else ''}
+            <!-- Right label at inside right of right bar -->
+            {'<text x="%d" y="%d" fill="%s" font-size="12" text-anchor="end" alignment-baseline="middle">%s</text>' % (width/2 + right_w - 5, height/2, label_color, val_right) if show_labels else ''}
+        </svg>
+        '''
+        return f'<div style="display: flex;">{svg}</div>'
+
+    # Optionally duplicate columns
+    # if keep_columns:
+    #     from gt_extras import gt_duplicate_column
+    #     gt = gt_duplicate_column(gt, col_left, after=col_left, append_text=" splitbar")
+    #     col_left = col_left + " splitbar"
+
+    # Apply to each row
+    for i, (v_left, v_right) in enumerate(zip(vals_left, vals_right)):
+        gt = gt.fmt(
+            lambda _vl=None, _vr=None, v_left=v_left, v_right=v_right: make_split_bar(v_left, v_right),
+            columns=col_left,
+            rows=[i],
+        )
+
+    return gt
+```
+
+```{python}
+# import kagglehub
+
+# # Download latest version
+# path = kagglehub.dataset_download("garethflandro/major-league-baseball-games-2024")
+
+# print("Path to dataset files:", path)
+```
+
+```{python}
+import polars as pl
+
+file_path = "./data/MLB2020-2024GameInfo.csv"
+
+# Load the latest version
+df = pl.read_csv(file_path, ignore_errors=True)
+print(df.columns)
+df
+
+```
+
+```{python}
+from pybaseball import playerid_lookup
+from pybaseball import playerid_reverse_lookup
+import unicodedata
+import time
+
+def strip_accents(text):
+    return "".join(
+        c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn"
+    )
+
+
+def get_headshot_url(player_name: str) -> str:
+    time.sleep(0.1)
+    try:
+        first, last = player_name.split(" ")
+        res = playerid_lookup(last, first, fuzzy=True)
+        row = res[
+            [
+                strip_accents(res_first).lower() == first.lower()
+                and strip_accents(res_last).lower() == last.lower()
+                for res_first, res_last in zip(res["name_first"], res["name_last"])
+            ]
+        ]
+        if len(row) > 0:
+            mlb_id = str(row["key_mlbam"].values[0])
+        else:
+            mlb_id = ""
+        return f"https://midfield.mlbstatic.com/v1/people/{mlb_id}/spots/120"
+    except Exception as e:
+        print(e)
+        return ""
+
+def get_headshot_url_from_retro(retro_id: str) -> str:
+    time.sleep(0.1)
+    
+    res = playerid_reverse_lookup([retro_id], key_type='retro')
+    mlb_id = str(res["key_mlbam"].values[0])
+    
+    return f"https://midfield.mlbstatic.com/v1/people/{mlb_id}/spots/120"
+```
+
+
+```{python}
+YEAR = 2024
+
+BUILD_FLAG = False
+
+```
+
+## Filter by date
+```{python}
+prepend = YEAR * 10000
+
+df = df.filter(
+    (pl.col("Date") >= (prepend + 101)) & (pl.col("Date") <= (prepend + 1231))
+)
+
+df
+```
+
+
+
+## Pitcher vis
+
+```{python}
+# Combine visiting and home teams' starting pitchers into one DataFrame
+pitcher_games = (
+    df.select(
+        [
+            pl.col("VT").alias("Team"),
+            pl.col("VT Starting Pitcher Name").alias("Starting Pitcher"),
+            pl.col("VT Starting Pitcher ID").alias("Starting Pitcher ID"),
+            pl.col("Winning Pitcher Name").alias("Winning Pitcher"),
+            pl.col("Losing Pitcher Name").alias("Losing Pitcher"),
+            pl.col("Winning Pitcher ID").alias("Winning Pitcher ID"),
+            pl.col("Losing Pitcher ID").alias("Losing Pitcher ID"),
+            pl.col("VT Score").alias("Team Runs"),
+            pl.col("VT Errors").alias("Team Errors")
+
+        ]
+    )
+    .vstack(
+        df.select(
+            [
+                pl.col("HT").alias("Team"),
+                pl.col("HT Starting Pitcher Name").alias("Starting Pitcher"),
+                pl.col("HT Starting Pitcher ID").alias("Starting Pitcher ID"),
+                pl.col("Winning Pitcher Name").alias("Winning Pitcher"),
+                pl.col("Losing Pitcher Name").alias("Losing Pitcher"),
+                pl.col("Winning Pitcher ID").alias("Winning Pitcher ID"),
+                pl.col("Losing Pitcher ID").alias("Losing Pitcher ID"),
+                pl.col("HT Score").alias("Team Runs"),
+                pl.col("VT Errors").alias("Team Errors")
+
+            ]
+        )
+    )
+    .filter(pl.col("Starting Pitcher").is_not_null())
+)
+
+# Add a column: 1 if win, 0 if loss, 0.5 otherwise
+pitcher_games = pitcher_games.with_columns(
+    pl.when(pl.col("Starting Pitcher ID") == pl.col("Winning Pitcher ID"))
+    .then(1)
+    .when(pl.col("Starting Pitcher ID") == pl.col("Losing Pitcher ID"))
+    .then(0)
+    .otherwise(0.5)
+    .alias("WinLoss")
+)
+
+pitcher_games
+
+```
+
+
+
+```{python}
+
+# Group by team and pitcher, count games, wins, and aggregate strikeouts as a list
+pitcher_counts = (
+    pitcher_games.group_by(["Team", "Starting Pitcher ID"])
+    .agg(
+        [
+            pl.len().alias("Games Started"),
+            (pl.col("Starting Pitcher ID") == pl.col("Winning Pitcher ID"))
+            .sum()
+            .alias("Wins"),
+            (pl.col("Starting Pitcher ID") == pl.col("Losing Pitcher ID"))
+            .sum()
+            .alias("Losses"),
+            pl.col("WinLoss"),
+            pl.col("Starting Pitcher").first(),
+            pl.col("Team Runs").mean().round(1),
+            pl.col("Team Errors").mean().round(1),
+        ]
+    )
+    .with_columns(
+        pl.col("Team").map_elements(lambda t: f"./images/{t}.png").alias("Logo")
+    )
+)
+
+top_pitchers = (
+    pitcher_counts.sort(["Games Started", "Starting Pitcher ID"], descending=[True, False])
+    .group_by("Team")
+    .head(5)
+    .with_columns(
+        pl.col("Starting Pitcher ID")
+        .map_elements(
+            get_headshot_url_from_retro if BUILD_FLAG else (lambda x: ""),
+            return_dtype=pl.Utf8,
+        )
+        .alias("headshot_url")
+    )
+    .with_columns(
+        pl.col("Starting Pitcher ID")
+        .map_elements(lambda x: f"player_headshots_id/{x}.png", return_dtype=pl.Utf8)
+        .alias("headshot_img")
+    )
+    .with_columns(
+        (
+            pl.col("Wins").cast(pl.Int64).cast(pl.Utf8)
+            + "-"
+            + pl.col("Losses").cast(pl.Int64).cast(pl.Utf8)
+        ).alias("Record")
+    )
+)
+
+# Keep only the row for each pitcher (by Starting Pitcher ID) with the most games started
+top_pitchers = (
+    top_pitchers.sort("Games Started", descending=True)
+    .group_by("Starting Pitcher ID")
+    .head(1)
+)
+
+```
+
+## RUN SPARINGLY TO GET IMAGES
+```{python}
+import requests
+import os
+import time
+
+
+if BUILD_FLAG:
+    # Create a directory for images if it doesn't exist
+    os.makedirs("player_headshots_id", exist_ok=True)
+
+    # Download each image
+    for url, retro_id in zip(top_pitchers["headshot_url"], top_pitchers["Starting Pitcher ID"]):
+        filename = os.path.join("player_headshots_id", retro_id + ".png")
+        if not os.path.exists(filename):
+            time.sleep(0.3)
+            try:
+                response = requests.get(url)
+                if response.status_code == 200:
+                    with open(filename, "wb") as f:
+                        f.write(response.content)
+                else:
+                    print(f"Failed to download {url}")
+            except Exception as e:
+                print(f"Error downloading {url}: {e}")
+else:
+    print("Not building")
+    
+```
+
+
+## make era
+
+```{python}
+from pybaseball import playerid_lookup
+from pybaseball import playerid_reverse_lookup
+from pybaseball import pitching_stats_bref
+
+
+if BUILD_FLAG:
+    pitcher_ids = playerid_reverse_lookup(list(top_pitchers["Starting Pitcher ID"]), key_type="retro")
+    pitching_stats = pitching_stats_bref(YEAR)
+
+    # Convert both to polars DataFrames
+    pitcher_ids_pl = pl.DataFrame({
+        "key_mlbam": pitcher_ids["key_mlbam"],
+        "key_retro": pitcher_ids["key_retro"]
+    })
+
+    pitching_stats_pl = pl.DataFrame({
+        "mlbID": pitching_stats["mlbID"],
+        "ERA": pitching_stats["ERA"]
+    })
+
+    # Ensure mlbID and key_mlbam are strings for join
+    pitcher_ids_pl = pitcher_ids_pl.with_columns(pl.col("key_mlbam").cast(pl.Utf8))
+    pitching_stats_pl = pitching_stats_pl.with_columns(pl.col("mlbID").cast(pl.Utf8))
+
+    # Join on mlbID == key_mlbam
+    joined = pitcher_ids_pl.join(
+        pitching_stats_pl,
+        left_on="key_mlbam",
+        right_on="mlbID",
+        how="inner"
+    )
+
+    joined.write_csv(f"data/{YEAR}era.csv")
+
+```
+
+## Merge with era
+
+```{python}
+
+file_path = f"./data/{YEAR}era.csv"
+era_df = pl.read_csv(file_path, ignore_errors=True)
+
+
+top_pitchers_with_era = top_pitchers.join(
+    era_df.select([pl.col("key_retro"), pl.col("ERA")]),
+    left_on="Starting Pitcher ID",
+    right_on="key_retro",
+    how="left"
+)
+
+top_pitchers_with_era
+
+```
+
+```{python}
+sorted_pitchers = top_pitchers_with_era.sort("ERA", descending=False)
+```
+
+```{python}
+from great_tables import GT, nanoplot_options, vals, html
+import gt_extras as gte
+
+
+gt = (
+    GT(sorted_pitchers)
+    .tab_header("")
+    .cols_hide(["headshot_url", "Games Started", "Wins", "Losses", "Team", "Team Runs", "Starting Pitcher ID"])
+    .cols_move_to_start(["Logo", "headshot_img", "Starting Pitcher", "ERA", "Record"])
+    .cols_label({"Starting Pitcher": "Pitcher", "headshot_img": "", "WinLoss": "Games Pitched", "Logo": "", "Team Errors": "Luck"})
+    .fmt_image("Logo")
+    .fmt_image("headshot_img")
+    .pipe(gte.gt_plt_winloss, "WinLoss", width=250, spacing=1, loss_color='darkorange')
+    .pipe(gte.gt_theme_538)
+    .pipe(gt_plt_split_bar, columns=("Team Errors", "Team Runs"), width=250)
+    # .pipe(gte.gt_hulk_col_numeric, columns="ERA", reverse=True)
+    .pipe(gte.gt_color_box, columns="ERA", palette=["Green", "Grey", "Red"], domain=[1.5, 7.5])
+)
+
+gt.show("browser")
+```
+
+
+```{python}
+
+team_map = {
+    'Arizona Diamondbacks': 'ARI', 'ARI': 'ARI',
+    'Atlanta Braves': 'ATL', 'ATL': 'ATL',
+    'Milwaukee Brewers': 'MIL', 'MIL': 'MIL',
+    'Miami Marlins': 'MIA', 'MIA': 'MIA',
+    'Oakland Athletics': 'OAK', 'OAK': 'OAK',
+    'Cleveland Indians': 'CLE', 'CLE': 'CLE',
+    'Boston Red Sox': 'BOS', 'BOS': 'BOS',
+    'San Diego Padres': 'SDN', 'SDN': 'SDN',
+    'St. Louis Cardinals': 'SLN', 'SLN': 'SLN',
+    'Chicago Cubs': 'CHN', 'CHN': 'CHN',
+    'Seattle Mariners': 'SEA', 'SEA': 'SEA',
+    'Kansas City Royals': 'KCA', 'KCA': 'KCA',
+    'Tampa Bay Rays': 'TBA', 'TBA': 'TBA',
+    'Colorado Rockies': 'COL', 'COL': 'COL',
+    'Philadelphia Phillies': 'PHI', 'PHI': 'PHI',
+    'New York Mets': 'NYN', 'NYN': 'NYN',
+    'Houston Astros': 'HOU', 'HOU': 'HOU',
+    'Chicago White Sox': 'CHA', 'CHA': 'CHA',
+    'Baltimore Orioles': 'BAL', 'BAL': 'BAL',
+    'Los Angeles Dodgers': 'LAN', 'LAN': 'LAN',
+    'Cincinnati Reds': 'CIN', 'CIN': 'CIN',
+    'Atlanta Braves': 'ATL', 'ATL': 'ATL',
+    'Los Angeles Angels': 'ANA', 'ANA': 'ANA',
+    'Detroit Tigers': 'DET', 'DET': 'DET',
+    'New York Yankees': 'NYA', 'NYA': 'NYA',
+    'San Francisco Giants': 'SFN', 'SFN': 'SFN',
+    'Pittsburgh Pirates': 'PIT', 'PIT': 'PIT',
+    'Washington Nationals': 'WAS', 'WAS': 'WAS',
+    'Texas Rangers': 'TEX', 'TEX': 'TEX',
+    'Minnesota Twins': 'MIN', 'MIN': 'MIN',
+    'Toronto Blue Jays': 'TOR', 'TOR': 'TOR',
+}
+```

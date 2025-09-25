@@ -1,0 +1,8 @@
+polars
+great-tables
+gt-extras
+shiny
+pybaseball
+requests
+jupyter
+quarto
