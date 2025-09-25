@@ -253,11 +253,12 @@ with ui.card(full_screen=True):
     def gt_table():
         source_note_md = """
             <div style="margin-top:10px;">
-                Luck is defined here as a combination of a pitcher's own 
-                <span style="color:red;font-weight:bold;">team errors</span> 
-                and 
-                <span style="color:darkgreen;font-weight:bold;">run support</span> 
-                received during their starts.
+            Luck is defined here as a combination of a pitcher's own 
+            <span style="color:red;font-weight:bold;">team errors</span> 
+            and 
+            <span style="color:darkgreen;font-weight:bold;">run support</span> 
+            received during their starts.
+            <a href="https://github.com/juleswg23/baseball" target="_blank">View source code on GitHub</a>
             </div>
         """
 

@@ -1,7 +1,7 @@
 # Variables
 EXPORT_DIR = docs
 
-.PHONY: all clean exp run
+.PHONY: all clean exp run local
 
 all: clean exp run
 
@@ -13,3 +13,6 @@ clean:
 
 run:
 	python3 -m http.server --directory docs --bind localhost 8008
+
+local:
+	shiny run shiny-app/app.py
