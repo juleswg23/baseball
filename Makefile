@@ -3,7 +3,7 @@ EXPORT_DIR = docs
 
 .PHONY: all clean exp run
 
-all: exp
+all: clean exp run
 
 exp:
 	shinylive export shiny-app $(EXPORT_DIR)/
