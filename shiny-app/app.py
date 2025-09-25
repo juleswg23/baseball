@@ -197,7 +197,7 @@ def team_choices():
 
 
 # --- Shiny UI ---
-ui.page_opts(title="MLB Pitchers Dashboard", fillable=True)
+ui.page_opts(title="MLB Pitchers Dashboard: Great Tables Contest 2025", fillable=True)
 
 with ui.sidebar(title="Sort and Filter"):
     sort_choices = {
