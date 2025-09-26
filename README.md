@@ -1,3 +1,7 @@
+<p align="center">
+  <img width="700" alt="image" src="https://github.com/user-attachments/assets/f1d3b3a7-abec-4d92-8d7b-1bd8b88aadff" />
+</p>
+
 # MLB Pitcher Luck Dashboard
 
 This project is a submission for the Posit Table Contest!
@@ -17,3 +21,4 @@ This dashboard explores the influence of "luck" on MLB pitcher win-loss records,
 ## Sources:
 
 Data courtesy of [Baseball Reference](https://www.baseball-reference.com/) and [retrosheet.org](https://www.retrosheet.org/)
+
